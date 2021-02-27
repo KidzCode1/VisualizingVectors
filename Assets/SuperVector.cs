@@ -10,6 +10,9 @@ public class SuperVector
   public double X { get; set; }
   public double Y { get; set; }
   public double Z { get; set; }
+  public double deltaX { get => X - tailX; }
+	public double deltaY { get => Y - tailY; }
+	public double deltaZ { get => Z - tailZ; }
 	public GameObject GameObject { get; set; }
 
 	/// <summary>

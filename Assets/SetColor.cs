@@ -11,11 +11,11 @@ public class SetColor
   /// <summary>
   /// Creates a new SetColor based on the specified input text.
   /// </summary>
-  /// <param name="input">The input text to get a match for. For example, "a.SetColor(#ffffff)".</param>
+  /// <param name="input">The input text to get a match for. For example, "a.color = #ffffff".</param>
   /// <returns>Returns the new SetColor, or null if a no matches were found for the specified input.</returns>
   public static SetColor Create(string input)
   {
-    const string pattern = @"^(?<vectorName>\w+).SetColor\((?<hexCode>#([0-9a-f]){6})\)";
+    const string pattern = @"^(?<vectorName>\w+).color\s*=\s*(?<hexCode>#([0-9a-f]){3}(([0-9a-f]){3})?)$";
 
     Regex regex = new Regex(pattern);
     MatchCollection matches = regex.Matches(input);

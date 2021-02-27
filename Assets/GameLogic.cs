@@ -19,6 +19,34 @@ public class GameLogic : MonoBehaviour
 
 	}
 
+	string GetLastLine(string textToCaret)
+	{
+		int lastNewLine = textToCaret.LastIndexOf('\n');
+		int startOfThisLine = 0;
+		if (lastNewLine >= 0)
+			startOfThisLine = lastNewLine + 1;
+
+		return textToCaret.Substring(startOfThisLine);
+	}
+
+	void Update()
+	{
+		if (Input.GetKeyDown(KeyCode.Space))
+		{
+			ableToCreateVector = true;
+		}
+
+		if (Input.GetKey(KeyCode.Return))
+		{
+			if (InputField.isFocused)
+			{
+				string textToCaret = InputField.text.Substring(0, InputField.caretPosition - 1);  // Trim away the last "\n"
+				string lineWeJustTyped = GetLastLine(textToCaret);
+				ExecuteCommandLine(lineWeJustTyped);
+			}
+		}
+	}
+
 	// Update is called once per frame
 	void FixedUpdate()
 	{
@@ -57,34 +85,64 @@ public class GameLogic : MonoBehaviour
 
 		Color color;
 		if (ColorUtility.TryParseHtmlString(hexCode, out color))
+			SetVectorColor(matchingVector, color);
+	}
+
+	private static void SetVectorColor(SuperVector vector, Color color)
+	{
+		MeshRenderer[] coneMeshRenderers = vector.GameObject.GetComponentsInChildren<MeshRenderer>();
+		foreach (MeshRenderer meshRenderer in coneMeshRenderers)
 		{
-			// color
-			MeshRenderer[] coneMeshRenderers = matchingVector.GameObject.GetComponentsInChildren<MeshRenderer>();
-			foreach (MeshRenderer meshRenderer in coneMeshRenderers)
-			{
-				meshRenderer.material.color = color;
-			}
+			meshRenderer.material.color = color;
 		}
+	}
+
+	public void TextSubmitted(InputField i)
+	{
+		Debug.Log("TextSubmitted!");
+		if (Input.GetKey(KeyCode.Return))
+		{
+			i.ActivateInputField();
+		}
+			//Do stuff here
 	}
 
 	public void TextChanged(string text)
 	{
-		SuperVector superVector = SuperVector.Create(InputField.text);
+		//ExecuteCommandLine(InputField.text);
+	}
+
+	private void ExecuteCommandLine(string text)
+	{
+		SuperVector superVector = SuperVector.Create(text);
 		if (superVector != null)
 		{
 			CreateOrUpdateSuperVector(superVector);
 		}
-		SetColor setColor = SetColor.Create(InputField.text);
+		SetColor setColor = SetColor.Create(text);
 		if (setColor != null)
 		{
 			ChangeVectorColor(setColor.vectorName, setColor.hexCode);
 		}
 	}
 
+	Color GetVectorColor(string vectorName)
+	{
+		SuperVector matchingVector = GetVectorByName(vectorName);
+		if (matchingVector == null)
+			return Color.black;
+
+		MeshRenderer[] coneMeshRenderers = matchingVector.GameObject.GetComponentsInChildren<MeshRenderer>();
+		foreach (MeshRenderer meshRenderer in coneMeshRenderers)
+			return meshRenderer.material.color;
+
+		return Color.black;
+	}
+
 	private void CreateOrUpdateSuperVector(SuperVector superVector)
 	{
 		bool unnamed = string.IsNullOrEmpty(superVector.vectorName);
-
+		Color nextVectorColor = GetVectorColor(superVector.vectorName);
 		if (unnamed)
 		{
 			DestroyLiveVectorIfItExists();
@@ -101,6 +159,7 @@ public class GameLogic : MonoBehaviour
 		else
 		{
 			superVector.GameObject = vectorGameObject;
+			SetVectorColor(superVector, nextVectorColor);
 			AddNamedVector(superVector);
 		}
 	}
@@ -109,14 +168,6 @@ public class GameLogic : MonoBehaviour
 	{
 		if (liveVector != null)
 			Destroy(liveVector);
-	}
-
-	void Update()
-	{
-		if (Input.GetKeyDown(KeyCode.Space))
-		{
-			ableToCreateVector = true;
-		}
 	}
 
 	GameObject CreateVector(double x, double y, double z, double tailX = 0, double tailY = 0, double tailZ = 0)
