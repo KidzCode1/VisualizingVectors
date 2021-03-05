@@ -14,9 +14,17 @@ public class GameLogic : MonoBehaviour
 	public InputField InputField;
 	bool ableToCreateVector;
 	// Start is called before the first frame update
+	
 	void Start()
 	{
-
+		SuperVector.VectorPrototype = Cone;
+		colorLookups.Add("red", "#f00");
+		colorLookups.Add("blue", "#00f");
+		colorLookups.Add("green", "#0f0");
+		colorLookups.Add("white", "#fff");
+		colorLookups.Add("gray", "#888");
+		colorLookups.Add("black", "#000");
+		colorLookups.Add("purple", "#5400d1");
 	}
 
 	string GetLastLine(string textToCaret)
@@ -58,18 +66,21 @@ public class GameLogic : MonoBehaviour
 	}
 	List<SuperVector> superVectors = new List<SuperVector>();
 
-	void RemoveNamedVector(string vectorName)
+	void RemoveNamedVector(string vectorName, bool suppressErrors = true)
 	{
-		SuperVector matchingVector = GetVectorByName(vectorName);
+		SuperVector matchingVector = GetVectorByName(vectorName, suppressErrors);
 		if (matchingVector == null)
 			return;
 		superVectors.Remove(matchingVector);
-		Destroy(matchingVector.GameObject);
+		matchingVector.DestroyGameObject();
 	}
 
-	private SuperVector GetVectorByName(string vectorName)
+	private SuperVector GetVectorByName(string vectorName, bool suppressErrors = false)
 	{
-		return superVectors.FirstOrDefault(test => test.vectorName == vectorName);
+		SuperVector superVector = superVectors.FirstOrDefault(test => test.vectorName == vectorName);
+		if (superVector == null && !suppressErrors)
+			Debug.LogError($"We can't find a vector named \"{vectorName}\"!");
+		return superVector;
 	}
 
 	void AddNamedVector(SuperVector superVector)
@@ -85,16 +96,7 @@ public class GameLogic : MonoBehaviour
 
 		Color color;
 		if (ColorUtility.TryParseHtmlString(hexCode, out color))
-			SetVectorColor(matchingVector, color);
-	}
-
-	private static void SetVectorColor(SuperVector vector, Color color)
-	{
-		MeshRenderer[] coneMeshRenderers = vector.GameObject.GetComponentsInChildren<MeshRenderer>();
-		foreach (MeshRenderer meshRenderer in coneMeshRenderers)
-		{
-			meshRenderer.material.color = color;
-		}
+			matchingVector.SetVectorColor(color);
 	}
 
 	public void TextSubmitted(InputField i)
@@ -112,27 +114,64 @@ public class GameLogic : MonoBehaviour
 		//ExecuteCommandLine(InputField.text);
 	}
 
-	private void ExecuteCommandLine(string text)
+	Dictionary<string, string> colorLookups = new Dictionary<string, string>();
+
+	void DefineColorName(string colorName, string hexCode)
 	{
-		SuperVector superVector = SuperVector.Create(text);
-		if (superVector != null)
-		{
-			CreateOrUpdateSuperVector(superVector);
-		}
-		SetColor setColor = SetColor.Create(text);
-		if (setColor != null)
-		{
-			ChangeVectorColor(setColor.vectorName, setColor.hexCode);
-		}
+		if (!colorLookups.ContainsKey(colorName))
+			colorLookups.Add(colorName, hexCode);
+		else
+			colorLookups[colorName] = hexCode;
+	}
+
+	void MoveVectorTo(string vector1, string vector2)
+	{
+		SuperVector superVector1 = GetVectorByName(vector1);
+		if (superVector1 == null)
+			return;
+
+		SuperVector superVector2 = GetVectorByName(vector2);
+		if (superVector2 == null)
+			return;
+
+		// If we are here, we know that both superVector1 and superVector2 are both good.
+		superVector2.MoveTailTo(superVector1.X, superVector1.Y, superVector1.Z);
+	}
+
+	private void SumAllVectors(string newVectorName, string vector1, string vector2, string vector3, string vector4, string vector5)
+	{
+		RemoveNamedVector(newVectorName);
+
+		SuperVector superVector1 = GetVectorByName(vector1);
+		if (superVector1 == null)
+			return;
+
+		SuperVector superVector2 = GetVectorByName(vector2);
+		if (superVector2 == null)
+			return;
+
+		SuperVector superVector3 = GetVectorByName(vector3);
+		SuperVector superVector4 = GetVectorByName(vector4);
+		SuperVector superVector5 = GetVectorByName(vector5);
+
+		SuperVector superVector = new SuperVector();
+		superVector.vectorName = newVectorName;
+		superVector.SetTo(superVector1);
+		superVector.Add(superVector2);
+		superVector.Add(superVector3);
+		superVector.Add(superVector4);
+		superVector.Add(superVector5);
+		superVector.RefreshGameObject();
+		AddNamedVector(superVector);
 	}
 
 	Color GetVectorColor(string vectorName)
 	{
-		SuperVector matchingVector = GetVectorByName(vectorName);
+		SuperVector matchingVector = GetVectorByName(vectorName, true);
 		if (matchingVector == null)
 			return Color.black;
 
-		MeshRenderer[] coneMeshRenderers = matchingVector.GameObject.GetComponentsInChildren<MeshRenderer>();
+		MeshRenderer[] coneMeshRenderers = matchingVector.VectorGameObject.GetComponentsInChildren<MeshRenderer>();
 		foreach (MeshRenderer meshRenderer in coneMeshRenderers)
 			return meshRenderer.material.color;
 
@@ -143,7 +182,7 @@ public class GameLogic : MonoBehaviour
 	{
 		bool unnamed = string.IsNullOrEmpty(superVector.vectorName);
 		Color nextVectorColor = GetVectorColor(superVector.vectorName);
-		if (unnamed)
+		if (unnamed)	
 		{
 			DestroyLiveVectorIfItExists();
 		}
@@ -152,14 +191,13 @@ public class GameLogic : MonoBehaviour
 			RemoveNamedVector(superVector.vectorName);
 		}
 
-		GameObject vectorGameObject = CreateVector(superVector.X, superVector.Y, superVector.Z, superVector.tailX, superVector.tailY, superVector.tailZ);
+		GameObject vectorGameObject = superVector.CreateGameObject();
 
 		if (unnamed)
 			liveVector = vectorGameObject;
 		else
 		{
-			superVector.GameObject = vectorGameObject;
-			SetVectorColor(superVector, nextVectorColor);
+			superVector.SetVectorColor(nextVectorColor);
 			AddNamedVector(superVector);
 		}
 	}
@@ -170,28 +208,56 @@ public class GameLogic : MonoBehaviour
 			Destroy(liveVector);
 	}
 
-	GameObject CreateVector(double x, double y, double z, double tailX = 0, double tailY = 0, double tailZ = 0)
+	private void ExecuteCommandLine(string text)
 	{
-		double deltaX = x - tailX;
-		double deltaY = y - tailY;
-		double deltaZ = z - tailZ;
-
-		Vector3 vectorDirection = new Vector3((float)deltaX, (float)deltaY, (float)deltaZ);
-		Vector3 position = new Vector3((float)x, (float)y, (float)z);
-		double lengthToPoint = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2) + Math.Pow(deltaZ, 2));
-		double vectorShaftLength = lengthToPoint - 2 * 0.9;
-
-		GameObject vector = Instantiate(Cone, position, Quaternion.LookRotation(vectorDirection));
-		Transform[] components = vector.GetComponentsInChildren<Transform>();
-		foreach (Transform transform in components)
+		SuperVector superVector = SuperVector.Create(text);
+		if (superVector != null)
 		{
-			if (transform.name == "VectorShaft")
-			{
-				transform.localScale = new Vector3(1, 1, (float)vectorShaftLength);
-				break;
-			}
+			CreateOrUpdateSuperVector(superVector);
+			return;
 		}
 
-		return vector;
+		SetColor setColor = SetColor.Create(text);
+		if (setColor != null)
+		{
+			ChangeVectorColor(setColor.vectorName, setColor.hexCode);
+			return;
+		}
+
+		SetNamedColor setNamedColor = SetNamedColor.Create(text);
+		if (setNamedColor != null)
+		{
+			string hexCode;
+			if (colorLookups.ContainsKey(setNamedColor.colorName))
+			{
+				hexCode = colorLookups[setNamedColor.colorName];
+				ChangeVectorColor(setNamedColor.vectorName, hexCode);
+			}
+			else
+				Debug.LogError($"\"{setNamedColor.colorName}\" needs to be defined first!!!");
+			return;
+		}
+
+		DefineColor defineColor = DefineColor.Create(text);
+		if (defineColor != null)
+		{
+			DefineColorName(defineColor.colorName, defineColor.hexCode);
+			return;
+		}
+
+		MoveVector moveVector = MoveVector.Create(text);
+		if (moveVector != null)
+		{
+			MoveVectorTo(moveVector.vector1, moveVector.vector2);
+			return;
+		}
+
+		SumVectors sumVectors = SumVectors.Create(text);
+		if (sumVectors != null)
+		{
+			SumAllVectors(sumVectors.newVectorName, sumVectors.vector1, sumVectors.vector2, sumVectors.vector3, sumVectors.vector4, sumVectors.vector5);
+			return;
+		}
+
 	}
 }

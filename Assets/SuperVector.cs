@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 public class SuperVector
@@ -13,7 +14,33 @@ public class SuperVector
   public double deltaX { get => X - tailX; }
 	public double deltaY { get => Y - tailY; }
 	public double deltaZ { get => Z - tailZ; }
-	public GameObject GameObject { get; set; }
+  public static GameObject VectorPrototype;
+	Color color;
+
+
+	public void MoveRelative(double deltaX, double deltaY, double deltaZ)
+	{
+    tailX += deltaX;
+		tailY += deltaY;
+		tailZ += deltaZ;
+    X += deltaX;
+    Y += deltaY;
+    Z += deltaZ;
+    RefreshGameObject();
+  }
+
+	public void RefreshGameObject()
+	{
+    DestroyGameObject();
+    CreateGameObject();
+	}
+
+	public void MoveTailTo(double x, double y, double z)
+  {
+    MoveRelative(x - tailX, y - tailY, z - tailZ);
+  }
+
+  public GameObject VectorGameObject { get; set; }
 
 	/// <summary>
 	/// Creates a new SuperVector based on the specified input text.
@@ -38,6 +65,67 @@ public class SuperVector
     superVector.Y = RegexHelper.GetValue<double>(matches, "Y");
     superVector.Z = RegexHelper.GetValue<double>(matches, "Z");
     return superVector;
+  }
+
+	public void SetVectorColor(Color color)
+  {
+		this.color = color;
+		MeshRenderer[] coneMeshRenderers = VectorGameObject.GetComponentsInChildren<MeshRenderer>();
+		foreach (MeshRenderer meshRenderer in coneMeshRenderers)
+			meshRenderer.material.color = color;
+	}
+
+  public GameObject CreateGameObject()
+  {
+    double deltaX = X - tailX;
+    double deltaY = Y - tailY;
+    double deltaZ = Z - tailZ;
+
+    Vector3 vectorDirection = new Vector3((float)deltaX, (float)deltaY, (float)deltaZ);
+    Vector3 position = new Vector3((float)X, (float)Y, (float)Z);
+    double lengthToPoint = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2) + Math.Pow(deltaZ, 2));
+    double vectorShaftLength = lengthToPoint - 2 * 0.9;
+
+    VectorGameObject = GameObject.Instantiate(VectorPrototype, position, Quaternion.LookRotation(vectorDirection));
+    Transform[] components = VectorGameObject.GetComponentsInChildren<Transform>();
+    foreach (Transform transform in components)
+    {
+      if (transform.name == "VectorShaft")
+      {
+        transform.localScale = new Vector3(1, 1, (float)vectorShaftLength);
+        break;
+      }
+    }
+
+    if (color != null)
+      SetVectorColor(color);
+
+    return VectorGameObject;
+  }
+
+	public void DestroyGameObject()
+	{
+    if (VectorGameObject != null)
+		  GameObject.Destroy(VectorGameObject);
+  }
+	public void Add(SuperVector superVector)
+	{
+		if (superVector == null)
+			return;
+
+		X += superVector.deltaX;
+		Y += superVector.deltaY;
+		Z += superVector.deltaZ;
+	}
+
+	public void SetTo(SuperVector superVector)
+	{
+    tailX = superVector.tailX;
+    tailY = superVector.tailY;
+    tailZ = superVector.tailZ;
+    X = superVector.X;
+    Y = superVector.Y;
+    Z = superVector.Z;
   }
 }
 
