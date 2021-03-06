@@ -44,7 +44,7 @@ public class GameLogic : MonoBehaviour
 			ableToCreateVector = true;
 		}
 
-		if (Input.GetKey(KeyCode.Return))
+		if (Input.GetKeyDown(KeyCode.Return))
 		{
 			if (InputField.isFocused)
 			{
@@ -71,8 +71,13 @@ public class GameLogic : MonoBehaviour
 		SuperVector matchingVector = GetVectorByName(vectorName, suppressErrors);
 		if (matchingVector == null)
 			return;
-		superVectors.Remove(matchingVector);
-		matchingVector.DestroyGameObject();
+		RemoveVector(matchingVector);
+	}
+
+	private void RemoveVector(SuperVector vector)
+	{
+		superVectors.Remove(vector);
+		vector.DestroyGameObject();
 	}
 
 	private SuperVector GetVectorByName(string vectorName, bool suppressErrors = false)
@@ -140,8 +145,6 @@ public class GameLogic : MonoBehaviour
 
 	private void SumAllVectors(string newVectorName, string vector1, string vector2, string vector3, string vector4, string vector5)
 	{
-		RemoveNamedVector(newVectorName);
-
 		SuperVector superVector1 = GetVectorByName(vector1);
 		if (superVector1 == null)
 			return;
@@ -161,6 +164,8 @@ public class GameLogic : MonoBehaviour
 		superVector.Add(superVector3);
 		superVector.Add(superVector4);
 		superVector.Add(superVector5);
+
+		RemoveNamedVector(newVectorName);
 		superVector.RefreshGameObject();
 		AddNamedVector(superVector);
 	}
@@ -208,6 +213,86 @@ public class GameLogic : MonoBehaviour
 			Destroy(liveVector);
 	}
 
+	void MakeVectorNegative(string vectorName)
+	{
+		SuperVector matchingVector = GetVectorByName(vectorName);
+		if (matchingVector == null)
+			return;
+
+		matchingVector.Negative();
+	}
+
+	void CreateNegativeVector(string existingVectorName, string newVectorName)
+	{
+		bool vectorNamesMatch = newVectorName == existingVectorName;
+		if (vectorNamesMatch)		// a = -a
+		{
+			MakeVectorNegative(existingVectorName);       
+			return;
+		}
+
+
+		// b = -a
+		
+		SuperVector a = GetVectorByName(existingVectorName);  // Does a exist?
+		if (a == null)  // No
+			return;  // Get out. We can't do anything if we don't have a vector to clone.
+
+		RemoveNamedVector(newVectorName);  // Removes "b" if it exists.
+
+		SuperVector b = a.Clone(newVectorName);  // Let's clone "a" and assign it to b
+		b.Negative();  // Let's negate "b" (flip it)
+		AddNamedVector(b);  // Let's add the ne
+	}
+
+	void HandleVectorCommand(string command, string vectorName)
+	{
+		SuperVector vector = GetVectorByName(vectorName);
+		if (vector == null)
+			return;
+
+		HandleVectorCommand(command, vector);
+	}
+
+	void DeleteVector(SuperVector vector)
+	{
+		RemoveVector(vector);
+	}
+
+	void HideVector(SuperVector vector)
+	{
+		vector.DestroyGameObject();
+	}
+
+	void ShowVector(SuperVector vector)
+	{
+		vector.CreateGameObject();
+	}
+
+	void HandleVectorCommand(string command, SuperVector vector)
+	{
+		switch (command)
+		{
+			case "delete":
+				DeleteVector(vector);
+				break;
+			case "hide":
+				HideVector(vector);
+				break;
+			case "show":
+				ShowVector(vector);
+				break;
+		}
+	}
+
+	void OffsetVectorBy(string vectorName, double offsetX, double offsetY, double offsetZ)
+	{
+		SuperVector vector = GetVectorByName(vectorName);
+		if (vector == null)
+			return;
+
+		vector.Offset(offsetX, offsetY, offsetZ);
+	}
 	private void ExecuteCommandLine(string text)
 	{
 		SuperVector superVector = SuperVector.Create(text);
@@ -256,6 +341,33 @@ public class GameLogic : MonoBehaviour
 		if (sumVectors != null)
 		{
 			SumAllVectors(sumVectors.newVectorName, sumVectors.vector1, sumVectors.vector2, sumVectors.vector3, sumVectors.vector4, sumVectors.vector5);
+			return;
+		}
+
+		NegativeVector negativeVector = NegativeVector.Create(text);
+		if (negativeVector != null)
+		{
+			MakeVectorNegative(negativeVector.vectorName);
+			return;
+		}
+
+		AssignNegativeVector assignNegativeVector = AssignNegativeVector.Create(text);
+		if (assignNegativeVector != null)
+		{
+			CreateNegativeVector(assignNegativeVector.existingVectorName, assignNegativeVector.newVectorName);
+			return;
+		}
+		
+		VectorCommand vectorCommand = VectorCommand.Create(text);
+		if (vectorCommand != null)
+		{
+			HandleVectorCommand(vectorCommand.command, vectorCommand.vectorName);
+			return;
+		}
+		OffsetVector offsetVector = OffsetVector.Create(text);
+		if (offsetVector != null)
+		{
+			OffsetVectorBy(offsetVector.vectorName, offsetVector.offsetX, offsetVector.offsetY, offsetVector.offsetZ);
 			return;
 		}
 

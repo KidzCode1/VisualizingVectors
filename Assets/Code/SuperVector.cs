@@ -35,6 +35,14 @@ public class SuperVector
     CreateGameObject();
 	}
 
+	public void Negative()
+	{
+    tailX = X + deltaX;
+		tailY = Y + deltaY;
+		tailZ = Z + deltaZ;
+    RefreshGameObject();
+	}
+
 	public void MoveTailTo(double x, double y, double z)
   {
     MoveRelative(x - tailX, y - tailY, z - tailZ);
@@ -126,6 +134,33 @@ public class SuperVector
     X = superVector.X;
     Y = superVector.Y;
     Z = superVector.Z;
+  }
+
+	public SuperVector Clone(string newVectorName)
+	{
+		SuperVector clonedVector = new SuperVector();
+    clonedVector.X = X;
+		clonedVector.Y = Y;
+		clonedVector.Z = Z;
+    clonedVector.tailX = tailX;
+    clonedVector.tailY = tailY;
+    clonedVector.tailZ = tailZ;
+    clonedVector.vectorName = newVectorName;
+    clonedVector.color = color;
+    clonedVector.CreateGameObject();
+    return clonedVector;
+	}
+	public void Offset(double offsetX, double offsetY, double offsetZ)
+	{
+    X += offsetX;
+		Y += offsetY;
+		Z += offsetZ;
+
+    tailX += offsetX;
+    tailY += offsetY;
+    tailZ += offsetZ;
+
+    RefreshGameObject();
   }
 }
 
